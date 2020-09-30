@@ -36,6 +36,7 @@ setup(
         "rawpy",
         "scikit-image",
         "imageio",
-        "pillow"
+        "pillow",
+        "opencv-python"
     ],
 )
