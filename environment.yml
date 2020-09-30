@@ -1,0 +1,8 @@
+name: photo
+dependencies:
+  - python>=3.8
+  - numpy
+  - matplotlib
+  - jupyter
+  - ipython
+  - rawpy
