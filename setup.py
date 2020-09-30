@@ -33,6 +33,9 @@ setup(
         "matplotlib",
         "jupyter",
         "ipython",
-        "rawpy"
+        "rawpy",
+        "scikit-image",
+        "imageio",
+        "pillow"
     ],
 )

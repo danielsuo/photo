@@ -6,3 +6,6 @@ dependencies:
   - jupyter
   - ipython
   - rawpy
+  - scikit-image
+  - imageio
+  - pillow
