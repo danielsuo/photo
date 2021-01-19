@@ -39,6 +39,7 @@ setup(
         "imutils",
         "shapely",
         "pillow",
-        "opencv-python"
+        "opencv-python",
+        "tqdm"
     ],
 )
