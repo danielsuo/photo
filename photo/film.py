@@ -124,12 +124,20 @@ def show(im, paths):
         ax.add_patch(patch)
 
 
-def crop(im, paths, pad=0.25, dpi=1600):
+def crop(im, paths, width=None, height=None, pad=0.25, dpi=1600):
     padding = int(pad * dpi)
 
     cropped = []
     for path in paths:
         x, y, w, h = cv2.boundingRect(path)
+        if width is not None:
+            pixel_width = int(width * dpi)
+            x -= (pixel_width - h) // 2
+            h = pixel_width
+        if height is not None:
+            pixel_height = int(height * dpi)
+            y -= (pixel_height - w) // 2
+            w = pixel_height
         x = max(0, x - padding)
         y = max(0, y - padding)
         w = min(x + w + 2 * padding, im.shape[1]) - x
