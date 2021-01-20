@@ -56,6 +56,7 @@ def film_area(fmt, dpi):
 def detect(im, fmt="35", area_threshold=0.1, dpi=1600):
     polys = []
     paths = []
+    rotations = []
     bw = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
 
     target_area = film_area(fmt, dpi)
@@ -66,7 +67,7 @@ def detect(im, fmt="35", area_threshold=0.1, dpi=1600):
         cnts = imutils.grab_contours(cnts)
         cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
 
-        for c in tqdm.tqdm(cnts):
+        for c in cnts:
             idxs = cv2.convexHull(c, returnPoints=False)
             hull = c[idxs.squeeze()]
             peri = cv2.arcLength(hull, True)
@@ -96,9 +97,13 @@ def detect(im, fmt="35", area_threshold=0.1, dpi=1600):
                 box = cv2.boxPoints(rect)
                 box = np.int0(np.concatenate((box, [box[0]])))
 
+                BL, BR = sorted(sorted(box[:4], key=lambda x: x[1])[
+                    2:], key=lambda x: x[0])
+                rotation = angle([1, 0], BR - BL)
+                rotations.append(rotation)
                 paths.append(box)
 
-    return paths
+    return paths, rotations
 
 
 def show(im, paths):
@@ -117,3 +122,27 @@ def show(im, paths):
         path = Path(path, codes)
         patch = patches.PathPatch(path)
         ax.add_patch(patch)
+
+
+def crop(im, paths, pad=0.25, dpi=1600):
+    padding = int(pad * dpi)
+
+    cropped = []
+    for path in paths:
+        x, y, w, h = cv2.boundingRect(path)
+        x = max(0, x - padding)
+        y = max(0, y - padding)
+        w = min(x + w + 2 * padding, im.shape[1]) - x
+        h = min(y + h + 2 * padding, im.shape[0]) - y
+        cropped.append(im[y:y+h, x:x+w])
+
+    return cropped
+
+
+def rotate(cropped, rotations):
+    rotated = []
+    for crop, rotation in zip(cropped, rotations):
+        rotated.append(imutils.rotate_bound(crop, -rotation * 180 / np.pi))
+
+    return rotated
+
