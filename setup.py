@@ -40,6 +40,7 @@ setup(
         "shapely",
         "pillow",
         "opencv-python",
-        "tqdm"
+        "tqdm",
+        "sklearn"
     ],
 )
