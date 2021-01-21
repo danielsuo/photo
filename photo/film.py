@@ -1,3 +1,4 @@
+import os
 import cv2
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -5,6 +6,7 @@ from matplotlib.path import Path
 import numpy as np
 from shapely.geometry import Polygon
 import imutils
+import PIL
 
 import rawpy
 import tqdm
@@ -153,4 +155,16 @@ def rotate(cropped, rotations):
         rotated.append(imutils.rotate_bound(crop, -rotation * 180 / np.pi))
 
     return rotated
+
+
+def save(ims, directory, format="tiff"):
+    directory = os.path.realpath(os.path.expanduser(directory))
+
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    for i, im in enumerate(ims):
+        im = PIL.Image.fromarray(im)
+        name = f"{directory}/{i:05d}.{format}"
+        im.save(name, format=format, quality=100, compression=None)
 
