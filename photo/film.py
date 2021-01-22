@@ -55,21 +55,34 @@ def film_area(fmt, dpi):
     return pixel_area(fmt["width"], fmt["height"], dpi)
 
 
-def detect(im, fmt="35", area_threshold=0.1, dpi=1600):
+def detect(im, fmt="35", area_threshold=0.1, dpi=1600, thresholds=np.linspace(70, 170, 11), use_tqdm=False):
+    # For BW negatives: thresholds=np.linspace(200, 100, 11)
     polys = []
     paths = []
     rotations = []
     bw = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
 
     target_area = film_area(fmt, dpi)
-    for threshold in np.linspace(200, 100, 11):
+
+    if use_tqdm:
+        thresholds = tqdm.tqdm(thresholds)
+
+    for threshold in thresholds:
         ret, threshed = cv2.threshold(bw, threshold, 255, cv2.THRESH_BINARY)
-        cnts = cv2.findContours(threshed.copy(), cv2.RETR_TREE,
+
+        cnts = cv2.findContours(threshed, cv2.RETR_TREE,
                                 cv2.CHAIN_APPROX_SIMPLE)
+
+        threshed = None
+        del threshed
+
         cnts = imutils.grab_contours(cnts)
         cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
 
-        for c in cnts:
+        if use_tqdm:
+            cnts = tqdm.tqdm(cnts, leave=False)
+
+        for c in cnts: 
             idxs = cv2.convexHull(c, returnPoints=False)
             hull = c[idxs.squeeze()]
             peri = cv2.arcLength(hull, True)
