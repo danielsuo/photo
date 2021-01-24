@@ -15,7 +15,7 @@ import sklearn
 DPI = 1600
 
 film_format = {
-    "35": {"width": 36.0, "height": 24.0},
+    "35": {"width": 36.0, "height": 24.0, "spacing": 2.0},
     "6x4.5": {"width": 56.0, "height": 42.0},
     "6x6": {"width": 56.0, "height": 56.0},
     "6x7": {"width": 56.0, "height": 67.0},
@@ -102,16 +102,19 @@ def detect(
 
             currPoly = Polygon(box)
             box = np.concatenate((box, [box[0]]))
+            BL, BR = sorted(sorted(box[:4], key=lambda x: x[1])[
+                    2:], key=lambda x: x[0])
+            rotation = angle([1, 0], BR - BL)
             exists = False
             curr_paths.append(box)
             for j, poly in enumerate(polys):
                 intersected_area = poly.intersection(currPoly).area
-                if intersected_area > 0.9 * areas[i]:
+                if intersected_area > 0.9 * areas[j]:
                     exists = True
-                    if areas[i] < area:
+                    if areas[j] < area:
                         polys[j] = currPoly
                         areas[j] = area
-                        rotations[j] = rotations
+                        rotations[j] = rotation
                         paths[j] = box
                     break
 
