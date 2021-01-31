@@ -15,10 +15,10 @@ import sklearn
 DPI = 1600
 
 film_format = {
-    "35": {"width": 36.0, "height": 24.0, "spacing": 2.0},
-    "6x4.5": {"width": 56.0, "height": 42.0},
-    "6x6": {"width": 56.0, "height": 56.0},
-    "6x7": {"width": 56.0, "height": 67.0},
+    "35": {"width": 36.0, "height": 24.0, "spacing": 2.0, "total_width": 35.0},
+    "6x4.5": {"width": 56.0, "height": 42.0, "total_width": 61.0},
+    "6x6": {"width": 56.0, "height": 56.0, "spacing": 6.5, "total_width": 61.0},
+    "6x7": {"width": 56.0, "height": 67.0, "total_width": 61.0},
 }
 
 
@@ -46,11 +46,10 @@ def film_area(fmt, dpi):
 def detect(
     im,
     fmt="35",
-    area_threshold=0.1,
-    aspect_ratio_threshold=0.1,
+    width_threshold=0.05,
     dpi=1600,
     to_bw=True,
-    thresholds=np.linspace(200, 100, 11),
+    threshold=200,
     use_tqdm=False,
     verbose=False,
 ):
@@ -59,75 +58,82 @@ def detect(
     paths = []
     rotations = []
 
-    target_area = film_area(fmt, dpi)
+    target_width = film_format[fmt]["total_width"] / 25.4 * dpi
     target_aspect_ratio = film_format[fmt]["width"] / film_format[fmt]["height"]
+
+    print(
+        f"Target width: {target_width:.2f}, Target aspect ratio: {target_aspect_ratio:.2f}"
+    )
 
     bw = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
 
     if verbose:
-        fig, axs = plt.subplots(len(thresholds), 1, figsize=(20, 200))
+        fig, axs = plt.subplots(1, 1, figsize=(20, 20))
 
-    if use_tqdm:
-        thresholds = tqdm.tqdm(thresholds)
+    curr_paths = []
+    ret, threshed = cv2.threshold(bw, threshold, 255, cv2.THRESH_BINARY)
 
-    for i, threshold in enumerate(thresholds):
-        curr_paths = []
-        ret, threshed = cv2.threshold(bw, threshold, 255, cv2.THRESH_BINARY)
+    cnts = cv2.findContours(threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        cnts = cv2.findContours(threshed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
 
-        cnts = imutils.grab_contours(cnts)
-        cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
+    axs.imshow(threshed, cmap="gray")
 
-        for c in cnts:
-            rect = cv2.minAreaRect(c)
-            (x, y), (w, h), rotation = rect
-            if w == 0 or h == 0:
-                continue
-            box = cv2.boxPoints(rect)
-            area = w * h
-            aspect_ratio = max(h, w) / min(h, w)
+    for c in cnts:
+        rect = cv2.minAreaRect(c)
+        (x, y), (w, h), rotation = rect
+        if w == 0 or h == 0:
+            continue
+        box = cv2.boxPoints(rect)
+        area = w * h
 
-            if verbose:
-                if area > 1000000:
-                    print(area)
+        if verbose and w > 0.5 * dpi or h > 0.5 * dpi:
+            print(w, h)
 
-            if (
-                area < target_area * (1 - area_threshold)
-                or area > target_area * (1 + area_threshold)
-                or aspect_ratio < target_aspect_ratio * (1 - aspect_ratio_threshold)
-                or aspect_ratio > target_aspect_ratio * (1 + aspect_ratio_threshold)
-            ):
-                continue
+        if h > target_width * (1 - width_threshold) and h < target_width * (
+            1 + width_threshold
+        ):
+            width = h
+        elif w > target_width * (1 - width_threshold) and w < target_width * (
+            1 + width_threshold
+        ):
+            width = w
+        else:
+            continue
 
-            currPoly = Polygon(box)
-            box = np.concatenate((box, [box[0]]))
-            BL, BR = sorted(sorted(box[:4], key=lambda x: x[1])[
-                    2:], key=lambda x: x[0])
-            rotation = angle([1, 0], BR - BL)
-            exists = False
-            curr_paths.append(box)
-            for j, poly in enumerate(polys):
-                intersected_area = poly.intersection(currPoly).area
-                if intersected_area > 0.9 * areas[j]:
-                    exists = True
-                    if areas[j] < area:
-                        polys[j] = currPoly
-                        areas[j] = area
-                        rotations[j] = rotation
-                        paths[j] = box
-                    break
+        currPoly = Polygon(box)
+        box = np.concatenate((box, [box[0]]))
+        BL, BR = sorted(sorted(box[:4], key=lambda x: x[1])[2:], key=lambda x: x[0])
+        rotation = angle([1, 0], BR - BL)
+        distance = l2(BL, BR)
+        print(distance)
+        print(180 / np.pi * rotation)
+        if distance > target_width * (
+            1 - width_threshold
+        ) and distance < target_width * (1 + width_threshold):
+            rotation -= np.pi / 2
+        print(180 / np.pi * rotation)
+        exists = False
+        curr_paths.append(box)
+        for j, poly in enumerate(polys):
+            intersected_area = poly.intersection(currPoly).area
+            if intersected_area > 0.9 * areas[j]:
+                exists = True
+                if areas[j] < area:
+                    polys[j] = currPoly
+                    areas[j] = area
+                    rotations[j] = rotation
+                    paths[j] = box
+                break
 
-            if exists:
-                continue
+        if exists:
+            continue
 
-            polys.append(currPoly)
-            areas.append(area)
-            rotations.append(rotation)
-            paths.append(box)
-
-        if verbose:
-            show(threshed, curr_paths, ax=axs[i])
+        polys.append(currPoly)
+        areas.append(area)
+        rotations.append(rotation)
+        paths.append(box)
 
     return paths, rotations
 
@@ -173,7 +179,7 @@ def crop(im, paths, width=None, height=None, pad=0.25, dpi=1600):
 def rotate(cropped, rotations):
     rotated = []
     for crop, rotation in zip(cropped, rotations):
-        rotated.append(imutils.rotate_bound(crop, -rotation * 180 / np.pi))
+        rotated.append(imutils.rotate_bound(crop, rotation * 180 / np.pi))
 
     return rotated
 
