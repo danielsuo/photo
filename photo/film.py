@@ -17,7 +17,7 @@ DPI = 1600
 film_format = {
     "35": {"width": 36.0, "height": 24.0, "spacing": 2.0, "total_width": 35.0},
     "6x4.5": {"width": 56.0, "height": 42.0, "total_width": 61.0},
-    "6x6": {"width": 56.0, "height": 56.0, "spacing": 6.5, "total_width": 61.0},
+    "6x6": {"width": 56.0, "height": 56.0, "spacing": 7.0, "total_width": 61.0},
     "6x7": {"width": 56.0, "height": 67.0, "total_width": 61.0},
 }
 
@@ -46,7 +46,7 @@ def film_area(fmt, dpi):
 def detect(
     im,
     fmt="35",
-    width_threshold=0.05,
+    width_threshold=0.1,
     dpi=1600,
     to_bw=True,
     threshold=200,
@@ -107,13 +107,10 @@ def detect(
         BL, BR = sorted(sorted(box[:4], key=lambda x: x[1])[2:], key=lambda x: x[0])
         rotation = angle([1, 0], BR - BL)
         distance = l2(BL, BR)
-        print(distance)
-        print(180 / np.pi * rotation)
         if distance > target_width * (
             1 - width_threshold
         ) and distance < target_width * (1 + width_threshold):
             rotation -= np.pi / 2
-        print(180 / np.pi * rotation)
         exists = False
         curr_paths.append(box)
         for j, poly in enumerate(polys):
@@ -179,7 +176,7 @@ def crop(im, paths, width=None, height=None, pad=0.25, dpi=1600):
 def rotate(cropped, rotations):
     rotated = []
     for crop, rotation in zip(cropped, rotations):
-        rotated.append(imutils.rotate_bound(crop, rotation * 180 / np.pi))
+        rotated.append(imutils.rotate_bound(crop, -rotation * 180 / np.pi))
 
     return rotated
 
